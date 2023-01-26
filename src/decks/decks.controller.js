@@ -1,4 +1,3 @@
-const controller = {};
 const { cards, decks } = require('../dataStore.js');
 const { logger } = require('../logger.js');
 
@@ -9,12 +8,13 @@ function deleteItem(collection, id) {
   }
 }
 
-controller.getAll = (req, res, _next) => {
+const getAll = (req, res, _next) => {
   res
     .json({ data: decks });
 };
 
-controller.get = (req, res, next) => {
+
+const validateDeckExists = (req, res, next) => {
   const { deckId } = req.params;
   const deck = decks.find(d => d.id === deckId);
 
@@ -22,12 +22,28 @@ controller.get = (req, res, next) => {
   if (!deck) {
     const message = `Deck with id ${deckId} not found.`;
     return next({ status: 404, message });
+  } else {
+    return next();
   }
+}
+const get = (req, res, next) => {
+  const { deckId } = req.params;
+  const deck = decks.find(d => d.id === deckId);
 
-  res.json({ data: deck });
+  const cardsInDeck = cards.filter(card => card.deckId === deckId);
+  // the below line of code is bad because it modifies our actual deck data
+  // deck.cards = cardsInDeck;
+
+  // send back the data with the cards in the deck
+  res.json({
+    data: {
+      cards: cardsInDeck,
+      ...deck
+    }
+  });
 };
 
-controller.create = (req, res, next) => {
+const create = (req, res, next) => {
   const { data } = req.body;
   if (!data) {
     const message = `Body must have 'data' key`;
@@ -62,16 +78,10 @@ controller.create = (req, res, next) => {
     .json({ data: deck });
 };
 
-controller.destroy = (req, res, next) => {
+const destroy = (req, res, next) => {
   const { deckId } = req.params;
 
   const deckIndex = decks.findIndex(d => d.id === deckId);
-
-  if (deckIndex === -1) {
-    const message = `Deck with id ${deckId} not found.`;
-    return next({ status: 404, message });
-  }
-
   // Delete deck
   deleteItem(decks, deckId);
   // Delete all cards in deck
@@ -85,4 +95,10 @@ controller.destroy = (req, res, next) => {
     .end();
 };
 
+const controller = {
+  getAll,
+  get: [validateDeckExists, get],
+  create,
+  destroy: [validateDeckExists, destroy]
+}
 module.exports = controller;

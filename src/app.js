@@ -22,87 +22,46 @@ app.use(express.json());
 
 app.use('/cards', cardsRouter);
 app.use('/decks', decksRouter);
-// Middleware and our routes need to do 1 of 2 things:
-// 1. Send back a response: res.send, res.json, etc
-// 2. Call next to continue processing
-//      a. next() => go to the next piece of middleware or route handler
-//      b. next('some argument') => go to error handling
 
-// app.get("/decks", (req, res, _next) => {
-//   res
-//     .json({ data: decks });
-// });
+const puppies = [];
 
-// app.post("/decks", (req, res, next) => {
-//   const { data } = req.body;
-//   if (!data) {
-//     const message = `Body must have 'data' key`;
-//     return next({ status: 400, message });
-//   }
+// app.use and app.get both tell Express to listen 
+// on a particular route.
+// app.use will run for ALL HTTP methods (get, post, put, delete, patch, etc)
+// app.use will run for non-exact path matches (subpaths)
+app.get('/puppies', (req, res, next) => {
+  res.json({ data: thisisnotarealvariable });
+})
 
-//   const { name, description } = data;
+let nextId = 1;
+app.post('/puppies', (req, res, next) => {
+  // actually save puppy data that was sent in the request
+  // data in post requests shows up in the body
+  // breed, color, activities
+  let newPuppy = {
+    breed: req.body.data.breed,
+    color: req.body.data.color,
+    activities: req.body.data.activities,
+    id: nextId
+  };
+  // if the request doesn't include all of these things:
+  // - could set a default value
+  // - could error: tell the user to include all of the things
+  nextId++;
+  puppies.push(newPuppy);
+  // send a reasonable response
+  res.status(201).json({ data: newPuppy });
+});
 
-//   const requiredFields = ["name", "description"];
-//   for (const field of requiredFields) {
-//     if (!data[field]) {
-//       const message = `'${field}' is required`;
-//       return next({ status: 400, message });
-//     }
-//   }
-
-//   // get an id
-//   const id = cuid();
-
-//   const deck = {
-//     id,
-//     name,
-//     description,
-//   };
-
-//   decks.push(deck);
-
-//   logger.info(`Deck with id ${id} created`);
-
-//   res
-//     .status(201)
-//     .json({ data: deck });
-// });
-
-// app.get("/decks/:deckId", (req, res, next) => {
-//   const { deckId } = req.params;
-//   const deck = decks.find(d => d.id === deckId);
-
-//   // make sure we found a list
-//   if (!deck) {
-//     const message = `Deck with id ${deckId} not found.`;
-//     return next({ status: 404, message });
-//   }
-
-//   res.json({ data: deck });
-// });
-
-// app.delete("/decks/:deckId", (req, res, next) => {
-//   const { deckId } = req.params;
-
-//   const deckIndex = decks.findIndex(d => d.id === deckId);
-
-//   if (deckIndex === -1) {
-//     const message = `Deck with id ${deckId} not found.`;
-//     return next({ status: 404, message });
-//   }
-
-//   // Delete deck
-//   deleteItem(decks, deckId);
-//   // Delete all cards in deck
-//   cards
-//     .filter(c => c.deckId === deckId)
-//     .forEach(c => deleteItem(cards, c.id));
-
-//   logger.info(`Deck with id ${deckId} deleted.`);
-//   res
-//     .status(204)
-//     .end();
-// });
+// 404 handler
+app.use((req, res, next) => {
+  next(
+    {
+      status: 404,
+      message: `The path ${req.url} was not found.`
+    }
+  )
+});
 
 // Error Handler
 app.use(function errorHandler(error, req, res, _next) {
