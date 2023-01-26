@@ -1,37 +1,18 @@
 const express = require("express");
 const morgan = require("morgan");
-const winston = require("winston");
 const cuid = require("cuid");
 
 const app = express();
 
-// Create a logger output to "info.log" file
-const fileLogger = new winston.transports.File({ filename: "info.log" });
-const consoleLogger = new winston.transports.Console({ format: winston.format.simple() });
-
-const logger = winston.createLogger({
-  level: "info",
-  format: winston.format.json(),
-  transports: [ fileLogger ],
-});
-
-// If running tests, remove file logger and output to console instead
-if (process.env.NODE_ENV === "test") {
-  logger.remove(fileLogger);
-  logger.add(consoleLogger);
-  consoleLogger.level = "crit";
-}
+const { logger } = require('./logger.js');
 
 // Import data store
 const { cards, decks } = require("./dataStore");
+// Import routers
+const cardsRouter = require('./cards/cards.router.js');
+const decksRouter = require('./decks/decks.router.js');
 
 // Utility function to delete items from any provided collection by id
-function deleteItem(collection, id) {
-  const itemIndex = collection.findIndex(i => i.id === id);
-  if (itemIndex > -1) {
-    collection.splice(itemIndex, 1);
-  }
-}
 
 // -- PIPELINE STARTS HERE ---
 
@@ -39,158 +20,89 @@ function deleteItem(collection, id) {
 app.use(morgan("common"));
 app.use(express.json());
 
-// Routes
-app.get("/cards", (_req, res, _next) => {
-  res
-    .json({ data: cards });
-});
+app.use('/cards', cardsRouter);
+app.use('/decks', decksRouter);
+// Middleware and our routes need to do 1 of 2 things:
+// 1. Send back a response: res.send, res.json, etc
+// 2. Call next to continue processing
+//      a. next() => go to the next piece of middleware or route handler
+//      b. next('some argument') => go to error handling
 
-app.post("/cards", (req, res, next) => {
-  const { data } = req.body;
-  if (!data) {
-    const message = `Body must have 'data' key`;
-    return next({ status: 400, message });
-  }
+// app.get("/decks", (req, res, _next) => {
+//   res
+//     .json({ data: decks });
+// });
 
-  const { front, back, deckId } = data;
+// app.post("/decks", (req, res, next) => {
+//   const { data } = req.body;
+//   if (!data) {
+//     const message = `Body must have 'data' key`;
+//     return next({ status: 400, message });
+//   }
 
-  // Validate required fields are present
-  const requiredFields = ["front","back","deckId"];
-  for (const field of requiredFields) {
-    if (!data[field]) {
-      const message = `'${field}' is required`;
-      return next({ status: 400, message });
-    }
-  }
+//   const { name, description } = data;
 
-  // Validate deck exists
-  const deck = decks.find(d => d.id === deckId);
-  if (!deck) {
-    const message = `Deck id ${deckId} does not exist.`;
-    return next({ status: 400, message });
-  } 
+//   const requiredFields = ["name", "description"];
+//   for (const field of requiredFields) {
+//     if (!data[field]) {
+//       const message = `'${field}' is required`;
+//       return next({ status: 400, message });
+//     }
+//   }
 
-  // Create an ID
-  const id = cuid();
+//   // get an id
+//   const id = cuid();
 
-  const card = {
-    id,
-    front,
-    back,
-    deckId,
-  };
+//   const deck = {
+//     id,
+//     name,
+//     description,
+//   };
 
-  cards.push(card);
-  logger.info(`Card with id ${id} created`);
+//   decks.push(deck);
 
-  res
-    .status(201)
-    .json({ data: card });
-});
+//   logger.info(`Deck with id ${id} created`);
 
-app.get("/cards/:cardId", (req, res, next) => {
-  const { cardId } = req.params;
-  const card = cards.find(c => c.id === cardId);
+//   res
+//     .status(201)
+//     .json({ data: deck });
+// });
 
-  // make sure we found a card
-  if (!card) {
-    const message = `Card with id ${cardId} not found.`;
-    return next({ status: 404, message });
-  }
+// app.get("/decks/:deckId", (req, res, next) => {
+//   const { deckId } = req.params;
+//   const deck = decks.find(d => d.id === deckId);
 
-  res.json({ data: card });
-});
+//   // make sure we found a list
+//   if (!deck) {
+//     const message = `Deck with id ${deckId} not found.`;
+//     return next({ status: 404, message });
+//   }
 
-app.delete("/cards/:cardId", (req, res, next) => {
-  const { cardId } = req.params;
-  const cardIndex = cards.findIndex(c => c.id === cardId);
+//   res.json({ data: deck });
+// });
 
-  if(cardIndex === -1) {
-    const message = `Card id ${cardId} does not exist`;
-    return next({ status: 404, message });
-  }
+// app.delete("/decks/:deckId", (req, res, next) => {
+//   const { deckId } = req.params;
 
-  cards.splice(cardIndex, 1);
-  res
-    .status(204)
-    .send();
-});
+//   const deckIndex = decks.findIndex(d => d.id === deckId);
 
-app.get("/decks", (req, res, _next) => {
-  res
-    .json({ data: decks });
-});
+//   if (deckIndex === -1) {
+//     const message = `Deck with id ${deckId} not found.`;
+//     return next({ status: 404, message });
+//   }
 
-app.post("/decks", (req, res, next) => {
-  const { data } = req.body;
-  if (!data) {
-    const message = `Body must have 'data' key`;
-    return next({ status: 400, message });
-  }
+//   // Delete deck
+//   deleteItem(decks, deckId);
+//   // Delete all cards in deck
+//   cards
+//     .filter(c => c.deckId === deckId)
+//     .forEach(c => deleteItem(cards, c.id));
 
-  const { name, description } = data;
-
-  const requiredFields = ["name", "description"];
-  for (const field of requiredFields) {
-    if (!data[field]) {
-      const message = `'${field}' is required`;
-      return next({ status: 400, message });
-    }
-  }
-
-  // get an id
-  const id = cuid();
-
-  const deck = {
-    id,
-    name,
-    description,
-  };
-
-  decks.push(deck);
-
-  logger.info(`Deck with id ${id} created`);
-
-  res
-    .status(201)
-    .json({ data: deck });
-});
-
-app.get("/decks/:deckId", (req, res, next) => {
-  const { deckId } = req.params;
-  const deck = decks.find(d => d.id === deckId);
-
-  // make sure we found a list
-  if (!deck) {
-    const message = `Deck with id ${deckId} not found.`;
-    return next({ status: 404, message });
-  }
-
-  res.json({ data: deck });
-});
-
-app.delete("/decks/:deckId", (req, res, next) => {
-  const { deckId } = req.params;
-
-  const deckIndex = decks.findIndex(d => d.id === deckId);
-
-  if (deckIndex === -1) {
-    const message = `Deck with id ${deckId} not found.`; 
-    return next({ status: 404, message });
-  }
-
-  // Delete deck
-  deleteItem(decks, deckId);
-  // Delete all cards in deck
-  cards
-    .filter(c => c.deckId === deckId)
-    .forEach(c => deleteItem(cards, c.id));
-
-  logger.info(`Deck with id ${deckId} deleted.`);
-  res
-    .status(204)
-    .end();
-});
+//   logger.info(`Deck with id ${deckId} deleted.`);
+//   res
+//     .status(204)
+//     .end();
+// });
 
 // Error Handler
 app.use(function errorHandler(error, req, res, _next) {
@@ -198,7 +110,7 @@ app.use(function errorHandler(error, req, res, _next) {
   const status = error.status || 500;
   const message = error.message || "Internal Server Error";
   logger.error(message);
-  
+
   res
     .status(status)
     .json({ error: message });
