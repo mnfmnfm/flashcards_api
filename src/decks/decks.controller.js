@@ -82,6 +82,19 @@ const create = (req, res, next) => {
     .json({ data: deck });
 };
 
+const update = (req, res, next) => {
+  const { deck } = res.locals; // this was set for us by validateDeckExists
+  // update the fields in that deck
+  // the request includes the data to update in the body
+  const { name, description } = req.body.data;
+  // use or to make sure that we only get actual updates, no empty updates
+  deck.name = name || deck.name;
+  deck.description = description || deck.description;
+  // save (this is kinda done for us because we're using an array rather than a database)
+  // send the updated data back in the response
+  res.json({ data: deck });
+}
+
 const destroy = (req, res, next) => {
   const { deckId } = req.params;
 
@@ -103,6 +116,7 @@ const controller = {
   getAll,
   get: [validateDeckExists, get],
   create,
+  update: [validateDeckExists, update],
   destroy: [validateDeckExists, destroy],
   validateDeckExists
 }

@@ -12,10 +12,11 @@ router.route('/')
 
 router.route('/:deckId')
   .get(decksController.get)
+  .put(decksController.update)
   .delete(decksController.destroy)
   .all(methodNotFound);
 
-// 
+// full path that this represents is /decks/:deckId/cards
 router.use('/:deckId/cards', decksController.validateDeckExists, cardsRouter);
 
 module.exports = router;
