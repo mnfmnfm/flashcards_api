@@ -18,17 +18,21 @@ const validateDeckExists = (req, res, next) => {
   const { deckId } = req.params;
   const deck = decks.find(d => d.id === deckId);
 
-  // make sure we found a list
+  // make sure we found a deck
   if (!deck) {
     const message = `Deck with id ${deckId} not found.`;
     return next({ status: 404, message });
   } else {
+    // saving our deck object into the response so that we can access it in future middleware/route handlers
+    res.locals.deck = deck;
     return next();
   }
 }
+
 const get = (req, res, next) => {
   const { deckId } = req.params;
-  const deck = decks.find(d => d.id === deckId);
+  // pull out the deck object that was saved, above, in the validateDeckExists middleware
+  const { deck } = res.locals;
 
   const cardsInDeck = cards.filter(card => card.deckId === deckId);
   // the below line of code is bad because it modifies our actual deck data
@@ -99,6 +103,7 @@ const controller = {
   getAll,
   get: [validateDeckExists, get],
   create,
-  destroy: [validateDeckExists, destroy]
+  destroy: [validateDeckExists, destroy],
+  validateDeckExists
 }
 module.exports = controller;

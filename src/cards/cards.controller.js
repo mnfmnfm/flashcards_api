@@ -6,8 +6,14 @@ const cuid = require('cuid');
 const logger = require('../logger.js');
 
 controller.getAll = (req, res, next) => {
+  const { deck } = res.locals;
+  let data = cards;
+  if (deck) {
+    // filter the cards before we send them back
+    data = data.filter(card => card.deckId === deck.id)
+  }
   res
-    .json({ data: cards });
+    .json({ data });
 };
 
 controller.get = (req, res, next) => {
